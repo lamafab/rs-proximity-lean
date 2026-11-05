@@ -17,7 +17,14 @@ section Distance
 variable {F : Type*} [Field F] [CharP F 2]
 
 /-- A word is δ-close to RS[L, k]: it agrees with the table of some
-polynomial of natDegree < k on at least a (1 − δ)-fraction of L. -/
+polynomial of natDegree < k on at least a (1 − δ)-fraction of L.
+
+Total over all δ and k; degenerate outside the regime 0 ≤ δ < 1, 1 ≤ k:
+- δ ≥ 1, k ≥ 1: every word is close, witnessed by p = 0
+- δ < 0, L nonempty: no word is close
+- k = 0: the code is empty, so no word is close at any δ
+
+Regime hypotheses live in the theorems, as with β ≠ 0 in the fold. -/
 def rsClose [DecidableEq F] (L : Finset F) (k : ℕ) (δ : ℝ) (w : F → F) : Prop :=
   ∃ p : Polynomial F, p.natDegree < k ∧
     ((L.filter fun x => w x = p.eval x).card : ℝ) ≥ (1 - δ) * (L.card : ℝ)
