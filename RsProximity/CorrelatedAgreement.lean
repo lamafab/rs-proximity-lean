@@ -49,10 +49,9 @@ theorem fold_correlated_agreement
     (hc' : rsCloseImage L k δ β (foldWord β c' w)) :
     rsClose L (2 * k) (2 * δ) w := sorry
 
-/-- The "except with small probability over the challenge" of the
-soundness story: if w is 2δ-far from RS[L, 2k], at most one challenge
-folds it δ-close. For a uniform challenge in a finite field this bounds
-the bad-event probability by 1/|F|. -/
+/-- If w is not within 2δ of the code RS[L, 2k], at most one challenge brings
+the fold within δ. For a uniform challenge in a finite field this bounds the
+bad-event probability by 1/|F|. -/
 theorem fold_bad_challenge_subsingleton
     [DecidableEq F]
     (β : F) (hβ : β ≠ 0) (L : Finset F) (hL : ∀ x ∈ L, x + β ∈ L)
