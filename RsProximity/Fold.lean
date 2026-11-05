@@ -11,8 +11,10 @@ import Mathlib.Tactic
 -- This module develops the fold and its algebra, all proved:
 --
 --   foldMap and its kernel, the base-q decomposition with halved degrees
---   (exists_fold_decomp), and the fold on words (foldWord) with its
---   reflection theorem (foldWord_eval).
+--   (exists_fold_decomp, with uniqueness fold_decomp_unique), and the
+--   fold on words (foldWord) with its fiber-local 2×2 solve
+--   (fold_fiber_solve, foldWord_fiber_eval) and reflection theorem
+--   (foldWord_eval).
 --
 -- Part of the RsProximity library; extracted on 2026-10-10 from the algebra
 -- study repository (Crypto/ZK/BinaryFRI.lean).
@@ -110,10 +112,12 @@ theorem foldMap_pair (β x : F) : foldMap β (x + β) = foldMap β x := by
 --                   = (1 + 1)·p₀(y) + (x + (x + β))·p₁(y)
 --
 -- The p₀ coefficient is 1 + 1 = 0 and the p₁ coefficient is
--- x + (x + β) = β, leaving β·p₁(y) = w(x) + w(x + β). Dividing through
--- and back-substituting (minus is plus in char 2):
+-- x + (x + β) = β, leaving β·p₁(y) = w(x) + w(x + β). Divide by β
+-- for p₁(y), then solve the first equation for p₀(y): subtracting
+-- x·p₁(y) from both sides is adding it (minus is plus in char 2), so
+-- p₀(y) = w(x) + x·p₁(y):
 --
---   p₁(y) = (w(x) + w(x+β)) / β     p₀(y) = w(x) + x·p₁(y)
+--   p₁(y) = (w(x) + w(x+β)) / β     p₀(y) = w(x) − x·p₁(y) = w(x) + x·p₁(y)
 --
 -- The division by β is why β ≠ 0 is assumed throughout: β = 0 collapses
 -- the fiber to one point and the two equations coincide.
@@ -124,7 +128,37 @@ theorem foldMap_pair (β x : F) : foldMap β (x + β) = foldMap β x := by
 --   folded value at y := p₀(y) + c·p₁(y)
 --
 -- The word fold itself is field arithmetic only (foldWord); the 2×2
--- solve is the fiber-local reading of the global division by foldQ.
+-- solve is the fiber-local reading of the global division by foldQ
+-- (fold_fiber_solve below; foldWord_fiber_eval for the folded value).
+
+/-- The fiber-local 2×2 solve behind one fold round. On the fiber
+{x, x + β} over y = q(x), write a := p₀(y) and b := p₁(y) for the two
+base-q components; evaluating at the fiber points gives two equations
+in the two unknowns:
+
+  w(x) = a + x·b,     w(x + β) = a + (x + β)·b.
+
+Adding the equations kills a (its coefficient is 1 + 1 = 0) and leaves
+β·b, since x + (x + β) = β; back-substituting (minus is plus in
+characteristic 2) then recovers a:
+
+  b = (w(x) + w(x + β)) / β,     a = w(x) + x·b.
+
+The division by β is why β ≠ 0 is assumed throughout: β = 0 collapses
+the fiber to one point and the two equations coincide. -/
+theorem fold_fiber_solve
+    (β : F) (hβ : β ≠ 0) (w : F → F) (x a b : F)
+    (hx : w x = a + x * b)
+    (hxβ : w (x + β) = a + (x + β) * b) :
+    b = (w x + w (x + β)) / β ∧ a = w x + x * b := by
+  have hsum : w x + w (x + β) = β * b := by
+    rw [hx, hxβ]
+    linear_combination CharTwo.add_self_eq_zero a + CharTwo.add_self_eq_zero (x * b)
+  constructor
+  · rw [hsum]
+    exact (mul_div_cancel_left₀ b hβ).symm
+  · rw [hx]
+    linear_combination -CharTwo.add_self_eq_zero (x * b)
 
 open Polynomial
 
@@ -158,15 +192,15 @@ theorem eq_digit_of_natDegree_lt_two {p : Polynomial F} (h : p.natDegree < 2) :
   · rw [coeff_eq_zero_of_natDegree_lt (show p.natDegree < n + 2 by omega)]
     simp
 
--- TODO: Uniqueness *should* be formalized, or at least explicitly stated
--- via a proxy `sorry` theorem.
+-- Uniqueness of the decomposition is formalized below
+-- (fold_decomp_unique).
 omit [CharP F 2] in
 /-- Base-q decomposition: f = p₀(q(X)) + X·p₁(q(X)) with halved degrees.
 Existence is polynomial long division in base q, one digit at a time; the
 digits' constant parts collect into p₀, the X-parts into p₁. This is the
 generalization of the even/odd split along X² (parity of exponents) to the
 fold polynomial q. Uniqueness (used by the soundness argument, not by the
-honest prover) is not formalized here. -/
+honest prover) is fold_decomp_unique below. -/
 theorem exists_fold_decomp (β : F) (f : Polynomial F) :
     ∃ p₀ p₁ : Polynomial F,
       -- f(X) = p₀(q(X)) + X·p₁(q(X))
@@ -212,6 +246,48 @@ theorem exists_fold_decomp (β : F) (f : Polynomial F) :
         · exact (natDegree_add_le _ _).trans (by rw [natDegree_mul_X hp, natDegree_C]; omega)
       omega
 
+omit [CharP F 2] in
+/-- Uniqueness of the base-q decomposition: the components p₀, p₁ are
+determined by f. The argument is parity of degrees: a composition with
+the degree-2 q has even degree, while X times one has odd degree, so a
+difference of two decompositions can only be zero. (Injectivity of
+composition with q is by leading coefficients: composing with a monic
+nonconstant polynomial preserves the leading coefficient.) -/
+theorem fold_decomp_unique (β : F) (p₀ p₁ p₀' p₁' : Polynomial F)
+    (h : p₀.comp (foldQ β) + X * p₁.comp (foldQ β) =
+      p₀'.comp (foldQ β) + X * p₁'.comp (foldQ β)) :
+    p₀ = p₀' ∧ p₁ = p₁' := by
+  -- Composition with the (nonconstant) q is injective.
+  have hcomp0 : ∀ a : Polynomial F, a.comp (foldQ β) = 0 → a = 0 := by
+    intro a ha
+    by_contra ha0
+    have hlc : (a.comp (foldQ β)).leadingCoeff = a.leadingCoeff := by
+      rw [leadingCoeff_comp (by simp [foldQ_natDegree]),
+        (foldQ_monic β).leadingCoeff, one_pow, mul_one]
+    rw [ha, leadingCoeff_zero] at hlc
+    exact leadingCoeff_ne_zero.mpr ha0 hlc.symm
+  -- The difference of two decompositions is a decomposition of zero.
+  have key : (p₀ - p₀').comp (foldQ β) = X * (p₁' - p₁).comp (foldQ β) := by
+    rw [sub_comp, sub_comp, mul_sub]
+    linear_combination h
+  by_cases hb : p₁' - p₁ = 0
+  · rw [hb, zero_comp, mul_zero] at key
+    exact ⟨sub_eq_zero.mp (hcomp0 _ key), (sub_eq_zero.mp hb).symm⟩
+  · exfalso
+    have hbcomp : (p₁' - p₁).comp (foldQ β) ≠ 0 := fun hc => hb (hcomp0 _ hc)
+    by_cases ha : p₀ - p₀' = 0
+    · rw [ha, zero_comp] at key
+      have h0 : X * (p₁' - p₁).comp (foldQ β) = 0 := key.symm
+      rw [mul_eq_zero] at h0
+      rcases h0 with h0 | h0
+      · exact absurd h0 X_ne_zero
+      · exact hbcomp h0
+    · -- Parity: the left side of key has even degree, the right odd.
+      have hdeq := congrArg natDegree key
+      rw [natDegree_comp, foldQ_natDegree, natDegree_mul X_ne_zero hbcomp,
+        natDegree_comp, foldQ_natDegree, natDegree_X] at hdeq
+      omega
+
 /-- The folded word's value at y = q(x), computed from the fiber {x, x+β}
 of the current word w. This is p₀(y) + c·p₁(y) with the components read
 off the 2×2 solve above -/
@@ -229,6 +305,23 @@ theorem foldWord_pair (β c : F) (hβ : β ≠ 0) (w : F → F) (x : F) :
   unfold foldWord
   rw [hfib, add_comm (w (x + β)) (w x)]
   linear_combination hs + CharTwo.add_self_eq_zero (w (x + β))
+
+/-- The folded value, seen fiber-locally: if w on the fiber {x, x + β}
+is given by the base-q components a = p₀(y), b = p₁(y) as in
+fold_fiber_solve, then foldWord computes a + c·b = (p₀ + c·p₁)(y).
+This is the word-level content of one fold round; foldWord_eval lifts
+it to polynomials. -/
+theorem foldWord_fiber_eval
+    (β c : F) (hβ : β ≠ 0) (w : F → F) (x a b : F)
+    (hx : w x = a + x * b)
+    (hxβ : w (x + β) = a + (x + β) * b) :
+    foldWord β c w x = a + c * b := by
+  have hsum : w x + w (x + β) = β * b := by
+    rw [hx, hxβ]
+    linear_combination CharTwo.add_self_eq_zero a + CharTwo.add_self_eq_zero (x * b)
+  unfold foldWord
+  rw [hsum, hx, mul_div_assoc, mul_div_cancel_left₀ _ hβ]
+  linear_combination CharTwo.add_self_eq_zero (x * b)
 
 /-- Fold consistency: if w is the evaluation table of f and f decomposes
 along q as (p₀, p₁), which is always possible (exists_fold_decomp), then the
