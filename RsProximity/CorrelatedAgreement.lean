@@ -5,10 +5,17 @@ import RsProximity.Distance
 -- Correlated agreement
 -- ============================================================================
 --
--- General correlated agreement over affine lines, followed by the soundness
--- claim of FRI made precise for one fold round: folding cannot launder a far
--- word into a near one. The "small probability over the challenge" is then a
--- corollary: the bad challenges form at most a singleton.
+-- General correlated agreement over affine lines and the fold-specific FRI
+-- kernel. Sections:
+--
+-- * LineCorrelatedAgreement: line words, fixed-pair agreement, close-challenge
+--   probability, and the proximity-gap dichotomy.
+-- * FoldCorrelatedAgreement: the characteristic-2 fold kernel and its
+--   bad-challenge corollary.
+--
+-- Dependencies: Fold -> Distance -> CorrelatedAgreement.
+-- Consumers: ListDecoding imports the line API for the Crites–Stewart
+-- reduction; ResearchDirection uses it transitively.
 --
 -- Part of the RsProximity library; extracted on 2026-10-10 from the algebra
 -- study repository (Crypto/ZK/BinaryFRI.lean).
@@ -178,28 +185,14 @@ section FoldCorrelatedAgreement
 
 variable {F : Type*} [Field F] [CharP F 2]
 
-/-- Correlated agreement, the deterministic core of one round (BCIKS20):
-if the folds under two distinct challenges are each δ-close to the code
-on the folded domain, the word itself is 2δ-close to the original code.
-On the intersection of the two agreement sets the fiber components
-p₀(y), p₁(y) are solved as fixed linear combinations of the two nearby
-codewords (det c − c′ ≠ 0), so they are codeword-consistent on a large
-set, and p̂₀(q(X)) + X·p̂₁(q(X)) witnesses the conclusion on the fibers
-above that set.
+/-- Fold-specific two-challenge kernel: if two distinct folds are `δ`-close
+on the folded domain, then the original word is `2δ`-close on `L`. The two
+agreement sets determine the fiber components on a large common subdomain.
 
-This two-challenge kernel is elementary and regime-free (vacuous once
-2δ ≥ 1). The regime-dependence lives in the probabilistic amplification
-FRI needs ("enough challenges fold close implies the word is close at
-tight radius"): proved up to the unique-decoding radius with O(1)
-exceptions and up to the Johnson bound with O(n) exceptions and zero
-proximity loss (Ben-Sasson, Carmon, Haböck, Kopparty, Saraf, ePrint
-2025/2055). Past Johnson the picture is negative: Ω(n^1.99) exceptions
-required (2025/2055), the up-to-capacity conjectures disproved
-(Crites-Stewart, ePrint 2025/2046; Diamond-Gruen, ePrint 2025/2010),
-explicit counterexamples at Θ(1/log n) below capacity (Krachun,
-Kazanin, Haböck, ePrint 2026/782), and positive results past Johnson
-would imply new RS list-decoding bounds (2025/2046, 2025/2055).
-Refinements by constant rate and extension field are open. -/
+This elementary, regime-free statement is separate from the tight-radius
+probabilistic amplification used by FRI. For that amplification and its
+current limitations, see BCIKS20, ePrint 2025/2055, and Crites–Stewart
+(ePrint 2025/2046). -/
 theorem fold_correlated_agreement
     [DecidableEq F]
     (β : F) (hβ : β ≠ 0) (L : Finset F) (hL : ∀ x ∈ L, x + β ∈ L)

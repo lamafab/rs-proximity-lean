@@ -5,26 +5,17 @@ import Mathlib.Data.Real.Sqrt
 -- List decodability of the Reed-Solomon code
 -- ============================================================================
 --
--- (δ, l)-list decodability (Elias): around every word, at most l codewords
--- lie within relative Hamming distance δ. Contents: the definition and the
--- unique-decoding regime (l = 1, half the minimum distance), the Johnson
--- radius 1 − √ρ with behavior lemmas and two literature theorems (sorry),
--- the capacity wall (above 1 − ρ no small list exists, sorry), and the
--- Crites–Stewart reduction: correlated agreement over lines implies list
--- decodability of the rate one step up.
+-- List decodability, decoding radii, and the Crites–Stewart reduction.
+-- Contents: unique decoding, the Johnson radius, the capacity obstruction,
+-- and the line construction reducing correlated agreement to list decoding.
 --
--- References (paper = Crites–Stewart, ePrint 2025/2046; canonical text at
--- assets/On-RS-Proximity-Gaps-Conjectures.txt, proofs there):
---   rsListDecodable                            paper Definition 1
---   lineCorrelatedAgreement (CorrelatedAgreement.lean), paper Definition 2
---   lineCorrelatedAgreement_upTo_johnsonRadius [BCI+23] Theorem 1.4
---   rsListDecodable_of_lineCorrelatedAgreement paper Theorem 2
---   rsClose_linePoint, linePoint_injective     paper Section 4, Claim 3
---   rsClose_smul_inv_sub_bound                 paper Section 4, deep-hole step
---   rsListDecodable_upTo_johnsonRadius         Johnson 1962;
---                                              Guruswami–Sudan 1998
---   not_rsListDecodable_above_capacity         list decoding capacity
---                                              (counting bound, Elias)
+-- CorrelatedAgreement.lean supplies the general affine-line API; Distance
+-- and Fold are available transitively. ResearchDirection imports this module
+-- for the capacity-regime conjectures.
+--
+-- References: Crites–Stewart (ePrint 2025/2046), Definition 1, Theorem 2,
+-- and Section 4; BCI+23, Theorem 1.4; Johnson 1962; Guruswami–Sudan 1998;
+-- Elias's list-decoding capacity bound.
 --
 -- Part of the RsProximity library.
 
@@ -36,12 +27,9 @@ section ListDecoding
 
 variable {F : Type*} [Field F]
 
-/-- RS[L, k] is (δ, l)-list decodable (paper, Definition 1): around every
-word u, at most l codewords lie within relative Hamming distance δ,
-i.e. agree with u on ≥ (1−δ)·|L| points. The close codewords are covered
-by a Finset of size ≤ l rather than counted (Set.ncard is 0 on infinite
-sets), and counted as polynomials, which agrees with counting tables for
-k ≤ |L|. -/
+/-- Around every word, at most `l` polynomials of degree `< k` agree with
+it on at least `(1 - δ) * |L|` positions. A finset covers all such polynomials,
+so the definition remains meaningful over arbitrary fields. -/
 def rsListDecodable [DecidableEq F] (L : Finset F) (k : ℕ) (δ : ℝ) (l : ℕ) : Prop :=
   ∀ u : F → F, ∃ ps : Finset (Polynomial F), ps.card ≤ l ∧
     ∀ p : Polynomial F, p.natDegree < k →
@@ -249,26 +237,18 @@ theorem rsListDecodable_upTo_johnsonRadius [DecidableEq F]
     rsListDecodable L k δ (L.card ^ 2) := sorry
 
 -- ----------------------------------------------------------------------------
--- The capacity wall: above 1 − ρ, no small list
+-- The capacity wall: beyond 1 − ρ, no small-list guarantee
 -- ----------------------------------------------------------------------------
--- Past the list-decoding capacity δ = 1 − ρ the worst-case list size is
--- exponential in n, by pure counting: the statement below is the exact
--- pigeonhole bound, so it doubles as the contrapositive interface to the
--- Johnson and Crites–Stewart list bounds above.
+-- Unique decoding gives at most one candidate, while the Johnson bound
+-- gives bounded lists in its regime. Beyond δ = 1 − ρ, the packing bound
+-- forces some received word to have exponentially many nearby codewords.
+-- The exact finite-field bound below also explains why the capacity
+-- hypothesis in the Crites–Stewart reduction cannot simply be removed.
 
-/-- List-decoding capacity of RS codes (the counting/packing bound): above
-δ = 1 − ρ = 1 − k/n no small list suffices, i.e. RS[L, k] is not
-(δ, l)-list decodable once l is below the pigeonhole bound. Counting
-argument: with q = |F|, n = |L|, d = ⌊δn⌋, there are q^k codewords
-(polynomials of natDegree < k); each radius-d Hamming ball around a
-codeword contains ≥ (n choose d)·(q−1)^d words on L; summing over
-codewords and averaging over the words on L (the q − n coordinates
-outside L cancel in the average) yields a word whose δ-ball contains
-≥ q^{k−n}·(n choose d)·(q−1)^d codewords. For δ = 1 − ρ + ε this grows
-like q^{εn}: exponential in n, for every code of rate ρ. This is why
-the hypothesis hδ in rsListDecodable_of_lineCorrelatedAgreement
-(δ below the capacity of RS[L, k+1]) cannot be removed. Literature
-theorem (Elias; standard, cf. Guruswami's list-decoding text); sorry,
+/-- Exact finite-field packing form of the capacity obstruction: if
+`1 - k / |L| < δ` and `l` is below the displayed counting bound, then
+`RS[L, k]` is not `(δ, l)`-list decodable. The bound follows by averaging
+Hamming balls over all received words. Literature theorem (Elias);
 formalization pending. -/
 theorem not_rsListDecodable_above_capacity [Fintype F] [DecidableEq F]
     (L : Finset F) (hL : 0 < L.card) (k : ℕ) (hk : 0 < k) (δ : ℝ) (l : ℕ)
@@ -414,17 +394,12 @@ theorem lineCorrelatedAgreement_upTo_johnsonRadius [Fintype F] [DecidableEq F]
     ∃ c : ℕ, lineCorrelatedAgreement L k δ
       (((L.card : ℝ) ^ c) / Fintype.card F) := sorry
 
-/-- Crites–Stewart, Theorem 2: correlated agreement over lines for
-RS[L, k] at radius δ with error ε implies (δ, l)-list decodability of
-RS[L, k + 1], with l = ⌈εq(q−n)/(q−n−kεq)⌉ where q = |F| and n = |L|.
-(For ε < (q−n)/(2kq) this is l ≤ 2εq.)
+/-- Correlated agreement at `(δ, ε)` implies list decodability at degree
+bound `k + 1`, with the displayed list size. For small enough `ε`, this
+is at most `2 * ε * |F|`.
 
-Sorry: stated, proof pending. Sketch (paper, Section 4): l+1 close
-codewords of RS[L, k+1] and Claim 4 give ≥ l(q−n)/(q−n+lk) distinct
-close line points via rsClose_linePoint and linePoint_injective (proved);
-the choice of l makes this exceed εq, so hgap applies to the line with
-u0 = u/(x − a), u1 = −(x − a)⁻¹; its conclusion makes u1 δ-close,
-contradicting the deep-hole bound rsClose_smul_inv_sub_bound (proved). -/
+The line construction and deep-hole bound above are proved; Claim 4 and
+the final rearrangement remain `sorry`. -/
 theorem rsListDecodable_of_lineCorrelatedAgreement [Fintype F] [DecidableEq F]
     (L : Finset F) (k : ℕ) (hk : 0 < k) (δ ε : ℝ)
     (hδ0 : 0 ≤ δ)
