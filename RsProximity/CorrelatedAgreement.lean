@@ -5,17 +5,176 @@ import RsProximity.Distance
 -- Correlated agreement
 -- ============================================================================
 --
--- The soundness claim of FRI, made precise for one fold round: folding
--- cannot launder a far word into a near one. The "small probability over
--- the challenge" is then a corollary: the bad challenges form at most a
--- singleton.
+-- General correlated agreement over affine lines, followed by the soundness
+-- claim of FRI made precise for one fold round: folding cannot launder a far
+-- word into a near one. The "small probability over the challenge" is then a
+-- corollary: the bad challenges form at most a singleton.
 --
 -- Part of the RsProximity library; extracted on 2026-10-10 from the algebra
 -- study repository (Crypto/ZK/BinaryFRI.lean).
 
 namespace RsProximity
 
-section CorrelatedAgreement
+open Polynomial
+
+section LineCorrelatedAgreement
+
+variable {F : Type*} [Field F]
+
+/-- The word at challenge `z` on the affine line through `u0` and `u1`. -/
+def lineWord (u0 u1 : F → F) (z : F) : F → F :=
+  fun x => u0 x + z * u1 x
+
+/-- Two words agree with RS codewords on one shared, sufficiently large
+subdomain of `L`. This is the conclusion of correlated agreement for a
+fixed pair, before quantifying over all affine lines. -/
+def pairCorrelatedAgreement (L : Finset F) (k : ℕ) (δ : ℝ)
+    (u0 u1 : F → F) : Prop :=
+  ∃ D' : Finset F, ∃ p q : Polynomial F,
+    D' ⊆ L ∧ p.natDegree < k ∧ q.natDegree < k ∧
+      (1 - δ) * (L.card : ℝ) ≤ (D'.card : ℝ) ∧
+      ∀ x ∈ D', u0 x = p.eval x ∧ u1 x = q.eval x
+
+/-- Challenges whose line words are `δ`-close to `RS[L, k]`. -/
+noncomputable def closeLineChallenges [Fintype F] [DecidableEq F]
+    (L : Finset F) (k : ℕ) (δ : ℝ) (u0 u1 : F → F) : Finset F := by
+  classical
+  exact Finset.univ.filter fun z => rsClose L k δ (lineWord u0 u1 z)
+
+/-- The fraction of challenges whose line words are `δ`-close to
+`RS[L, k]`: the finite uniform probability over the challenge field. -/
+noncomputable def closeLineFraction [Fintype F] [DecidableEq F]
+    (L : Finset F) (k : ℕ) (δ : ℝ) (u0 u1 : F → F) : ℝ :=
+  ((closeLineChallenges L k δ u0 u1).card : ℝ) / (Fintype.card F : ℝ)
+
+/-- Correlated agreement over lines (paper, Definition 2; BCIKS Theorem
+1.4): if more than an `ε`-fraction of the line points are `δ`-close to
+`RS[L, k]`, then the two original words have correlated agreement. -/
+def lineCorrelatedAgreement [Fintype F] [DecidableEq F] (L : Finset F) (k : ℕ)
+    (δ ε : ℝ) : Prop :=
+  ∀ u0 u1 : F → F,
+    ε < closeLineFraction L k δ u0 u1 →
+      pairCorrelatedAgreement L k δ u0 u1
+
+/-- The probability formulation of the close-challenge hypothesis is
+equivalent to the count-based formulation used by the list-decoding
+reduction. -/
+theorem lt_closeLineFraction_iff [Fintype F] [DecidableEq F]
+    (L : Finset F) (k : ℕ) (δ : ℝ) (u0 u1 : F → F) (ε : ℝ) :
+    ε < closeLineFraction L k δ u0 u1 ↔
+      ε * (Fintype.card F : ℝ) <
+        ((closeLineChallenges L k δ u0 u1).card : ℝ) := by
+  have hq : (0 : ℝ) < (Fintype.card F : ℝ) := by
+    exact_mod_cast (Fintype.card_pos : 0 < Fintype.card F)
+  rw [closeLineFraction, lt_div_iff₀ hq]
+
+/-- The count-based presentation of `lineCorrelatedAgreement`. -/
+theorem lineCorrelatedAgreement_iff_count [Fintype F] [DecidableEq F]
+    (L : Finset F) (k : ℕ) (δ ε : ℝ) :
+    lineCorrelatedAgreement L k δ ε ↔
+      ∀ u0 u1 : F → F,
+        ε * (Fintype.card F : ℝ) <
+            ((closeLineChallenges L k δ u0 u1).card : ℝ) →
+          pairCorrelatedAgreement L k δ u0 u1 := by
+  constructor
+  · intro h u0 u1 hε
+    exact h u0 u1 ((lt_closeLineFraction_iff L k δ u0 u1 ε).2 hε)
+  · intro h u0 u1 hε
+    exact h u0 u1 ((lt_closeLineFraction_iff L k δ u0 u1 ε).1 hε)
+
+/-- The forward reading of `lineCorrelatedAgreement`: sufficiently many
+close line points give correlated agreement for the original pair. -/
+theorem pairCorrelatedAgreement_of_closeLineFraction
+    [Fintype F] [DecidableEq F]
+    (L : Finset F) (k : ℕ) (δ ε : ℝ)
+    (h : lineCorrelatedAgreement L k δ ε)
+    (u0 u1 : F → F)
+    (hP : ε < closeLineFraction L k δ u0 u1) :
+    pairCorrelatedAgreement L k δ u0 u1 :=
+  h u0 u1 hP
+
+/-- The contrapositive, soundness reading: without correlated agreement,
+at most an `ε`-fraction of challenges can produce close line words. -/
+theorem closeLineFraction_le_of_not_pairCorrelatedAgreement
+    [Fintype F] [DecidableEq F]
+    (L : Finset F) (k : ℕ) (δ ε : ℝ)
+    (h : lineCorrelatedAgreement L k δ ε)
+    (u0 u1 : F → F)
+    (hca : ¬ pairCorrelatedAgreement L k δ u0 u1) :
+    closeLineFraction L k δ u0 u1 ≤ ε := by
+  by_contra hP
+  exact hca (h u0 u1 (lt_of_not_ge hP))
+
+/-- Correlated agreement is preserved by every affine combination: the
+shared codewords `p` and `q` give the line codeword `p + z • q`. -/
+theorem rsClose_lineWord_of_pairCorrelatedAgreement
+    [DecidableEq F]
+    (L : Finset F) (k : ℕ) (δ : ℝ)
+    (u0 u1 : F → F)
+    (hca : pairCorrelatedAgreement L k δ u0 u1)
+    (z : F) :
+    rsClose L k δ (lineWord u0 u1 z) := by
+  rcases hca with ⟨D', p, q, hD', hp, hq, hcard, hagree⟩
+  have hsmul : (z • q).natDegree < k :=
+    (natDegree_smul_le z q).trans_lt hq
+  have hdeg : (p + z • q).natDegree < k :=
+    (natDegree_add_le p (z • q)).trans_lt (max_lt hp hsmul)
+  refine ⟨p + z • q, hdeg, ?_⟩
+  have hsub : D' ⊆ L.filter fun x =>
+      lineWord u0 u1 z x = (p + z • q).eval x := by
+    intro x hx
+    rw [Finset.mem_filter]
+    refine ⟨hD' hx, ?_⟩
+    have hx' := hagree x hx
+    simp [lineWord, hx'.1, hx'.2, eval_add, eval_smul, smul_eq_mul]
+  exact le_trans hcard (by exact_mod_cast Finset.card_le_card hsub)
+
+/-- Once a pair has correlated agreement, every challenge produces a
+close line word. -/
+theorem closeLineChallenges_eq_univ_of_pairCorrelatedAgreement
+    [Fintype F] [DecidableEq F]
+    (L : Finset F) (k : ℕ) (δ : ℝ)
+    (u0 u1 : F → F)
+    (hca : pairCorrelatedAgreement L k δ u0 u1) :
+    closeLineChallenges L k δ u0 u1 = Finset.univ := by
+  classical
+  rw [Finset.eq_univ_iff_forall]
+  intro z
+  rw [closeLineChallenges, Finset.mem_filter]
+  exact ⟨Finset.mem_univ z,
+    rsClose_lineWord_of_pairCorrelatedAgreement L k δ u0 u1 hca z⟩
+
+/-- Correlated agreement makes the close-challenge probability one. -/
+theorem closeLineFraction_eq_one_of_pairCorrelatedAgreement
+    [Fintype F] [DecidableEq F]
+    (L : Finset F) (k : ℕ) (δ : ℝ)
+    (u0 u1 : F → F)
+    (hca : pairCorrelatedAgreement L k δ u0 u1) :
+    closeLineFraction L k δ u0 u1 = 1 := by
+  have hq : (Fintype.card F : ℝ) ≠ 0 := by
+    exact_mod_cast ((Fintype.card_pos : 0 < Fintype.card F).ne')
+  rw [closeLineFraction,
+    closeLineChallenges_eq_univ_of_pairCorrelatedAgreement L k δ u0 u1 hca]
+  simp [hq]
+
+/-- The proximity-gap behavior of a line: either few challenges are close,
+or every challenge is close. -/
+theorem closeLineFraction_le_or_eq_one
+    [Fintype F] [DecidableEq F]
+    (L : Finset F) (k : ℕ) (δ ε : ℝ)
+    (h : lineCorrelatedAgreement L k δ ε)
+    (u0 u1 : F → F) :
+    closeLineFraction L k δ u0 u1 ≤ ε ∨
+      closeLineFraction L k δ u0 u1 = 1 := by
+  by_cases hca : pairCorrelatedAgreement L k δ u0 u1
+  · exact Or.inr (closeLineFraction_eq_one_of_pairCorrelatedAgreement
+      L k δ u0 u1 hca)
+  · exact Or.inl (closeLineFraction_le_of_not_pairCorrelatedAgreement
+      L k δ ε h u0 u1 hca)
+
+end LineCorrelatedAgreement
+
+section FoldCorrelatedAgreement
 
 variable {F : Type*} [Field F] [CharP F 2]
 
@@ -62,6 +221,6 @@ theorem fold_bad_challenge_subsingleton
   by_contra hne
   exact hfar (fold_correlated_agreement β hβ L hL k δ w c c' hne hc hc')
 
-end CorrelatedAgreement
+end FoldCorrelatedAgreement
 
 end RsProximity
