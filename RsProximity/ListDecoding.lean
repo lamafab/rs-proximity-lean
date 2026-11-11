@@ -404,31 +404,6 @@ theorem rsClose_smul_inv_sub_bound [DecidableEq F] (L : Finset F) (k : ℕ) (δ 
         Nat.cast_le.mpr (Finset.card_le_card hincl)
     _ ≤ k := Nat.cast_le.mpr hroots
 
-open Classical in
-/-- Correlated agreement over lines (paper, Definition 2; the BCIKS
-Theorem 1.4 formulation): if more than an ε-fraction of the points of a
-line u0 + z·u1 are δ-close to RS[L, k], then u0, u1 agree with codewords
-v0, v1 on a common subdomain D′ ⊆ L of density ≥ 1 − δ. This is the
-hypothesis language of Theorem 2. -/
-def lineCorrelatedAgreement [Fintype F] [DecidableEq F] (L : Finset F) (k : ℕ)
-    (δ ε : ℝ) : Prop :=
-  -- for every pair of words, i.e. every affine line in the word space
-  ∀ u0 u1 : F → F,
-    -- hypothesis: the close line points exceed an ε-fraction of the field;
-    -- z ranges over ALL of F, the batching challenges the verifier draws from
-    ε * (Fintype.card F : ℝ) < ((Finset.univ.filter fun z =>
-      -- each z gives the line word x ↦ u0 x + z * u1 x, tested for δ-closeness
-      rsClose L k δ (fun x => u0 x + z * u1 x)).card : ℝ) →
-    -- conclusion: one common subdomain and two codewords
-    ∃ D' : Finset F, ∃ v0 v1 : Polynomial F,
-      -- D′ sits inside L, and v0, v1 are RS[L, k] codewords (natDegree < k)
-      D' ⊆ L ∧ v0.natDegree < k ∧ v1.natDegree < k ∧
-      -- D′ is large: density ≥ 1 − δ (the "nontrivial" part of the paper)
-      (1 - δ) * (L.card : ℝ) ≤ (D'.card : ℝ) ∧
-      -- on D′ both words agree pointwise with their codewords: the common
-      -- agreement set, "correlated" rather than per-word accidental
-      ∀ x ∈ D', u0 x = v0.eval x ∧ u1 x = v1.eval x
-
 /-- BCIKS Theorem 1.4, sharpened by ePrint 2025/2055: correlated
 agreement over lines holds up to the Johnson bound, with error
 polynomial in n over q. Literature theorem; sorry, formalization
