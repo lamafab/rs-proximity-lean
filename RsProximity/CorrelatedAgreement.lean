@@ -14,8 +14,10 @@ import RsProximity.Distance
 --   bad-challenge corollary.
 --
 -- Dependencies: Fold -> Distance -> CorrelatedAgreement.
--- Consumers: ListDecoding imports the line API for the Crites–Stewart
--- reduction; ResearchDirection uses it transitively.
+-- Consumers: AffineCombiners and ListDecoding import the line API;
+-- CritesStewartReduction uses it transitively through ListDecoding.
+--
+-- Reference: BCIKS Theorem 1.4.
 --
 -- Part of the RsProximity library; extracted on 2026-10-10 from the algebra
 -- study repository (Crypto/ZK/BinaryFRI.lean).
