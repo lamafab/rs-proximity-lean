@@ -131,6 +131,9 @@ theorem foldMap_pair (β x : F) : foldMap β (x + β) = foldMap β x := by
 -- solve is the fiber-local reading of the global division by foldQ
 -- (fold_fiber_solve below; foldWord_fiber_eval for the folded value).
 
+-- TODO: Probably remove this, and move the explainer block above to
+-- def foldWord?
+--
 /-- The fiber-local 2×2 solve behind one fold round. On the fiber
 {x, x + β} over y = q(x), write a := p₀(y) and b := p₁(y) for the two
 base-q components; evaluating at the fiber points gives two equations
@@ -219,28 +222,28 @@ theorem exists_fold_decomp (β : F) (f : Polynomial F) :
     have hq1 : foldQ β ≠ 1 := by
       intro h1; rw [h1, natDegree_one] at hq2; omega
     set f' := f /ₘ foldQ β with hf'
-    set d := f %ₘ foldQ β with hd
-    have hdd : d.natDegree < 2 := by rw [hd, ← hq2]; exact natDegree_modByMonic_lt f hq hq1
-    have hfdecomp : d + foldQ β * f' = f := by rw [hd, hf']; exact modByMonic_add_div _ _
+    set r := f %ₘ foldQ β with hr
+    have hrdeg : r.natDegree < 2 := by rw [hr, ← hq2]; exact natDegree_modByMonic_lt f hq hq1
+    have hfdecomp : r + foldQ β * f' = f := by rw [hr, hf']; exact modByMonic_add_div _ _
     have hdf' : f'.natDegree = n - 2 := by rw [hf', natDegree_divByMonic f hq, h, hq2]
     have hlt : f'.natDegree < n := by omega
     obtain ⟨p₀', p₁', hcomp, hd0, hd1⟩ := ih _ hlt f' rfl
-    rw [eq_digit_of_natDegree_lt_two hdd] at hfdecomp
-    refine ⟨p₀' * X + C (d.coeff 0), p₁' * X + C (d.coeff 1), ?_, ?_, ?_⟩
-    · have e1 : (p₀' * X + C (d.coeff 0)).comp (foldQ β) =
-          p₀'.comp (foldQ β) * foldQ β + C (d.coeff 0) := by
+    rw [eq_digit_of_natDegree_lt_two hrdeg] at hfdecomp
+    refine ⟨p₀' * X + C (r.coeff 0), p₁' * X + C (r.coeff 1), ?_, ?_, ?_⟩
+    · have e1 : (p₀' * X + C (r.coeff 0)).comp (foldQ β) =
+          p₀'.comp (foldQ β) * foldQ β + C (r.coeff 0) := by
         simp [add_comp, mul_comp, X_comp, C_comp]
-      have e2 : (p₁' * X + C (d.coeff 1)).comp (foldQ β) =
-          p₁'.comp (foldQ β) * foldQ β + C (d.coeff 1) := by
+      have e2 : (p₁' * X + C (r.coeff 1)).comp (foldQ β) =
+          p₁'.comp (foldQ β) * foldQ β + C (r.coeff 1) := by
         simp [add_comp, mul_comp, X_comp, C_comp]
       rw [e1, e2]
       linear_combination foldQ β * hcomp - hfdecomp
-    · have h0 : (p₀' * X + C (d.coeff 0)).natDegree ≤ p₀'.natDegree + 1 := by
+    · have h0 : (p₀' * X + C (r.coeff 0)).natDegree ≤ p₀'.natDegree + 1 := by
         by_cases hp : p₀' = 0
         · subst hp; rw [zero_mul, zero_add, natDegree_C]; omega
         · exact (natDegree_add_le _ _).trans (by rw [natDegree_mul_X hp, natDegree_C]; omega)
       omega
-    · have h1 : (p₁' * X + C (d.coeff 1)).natDegree ≤ p₁'.natDegree + 1 := by
+    · have h1 : (p₁' * X + C (r.coeff 1)).natDegree ≤ p₁'.natDegree + 1 := by
         by_cases hp : p₁' = 0
         · subst hp; rw [zero_mul, zero_add, natDegree_C]; omega
         · exact (natDegree_add_le _ _).trans (by rw [natDegree_mul_X hp, natDegree_C]; omega)
@@ -288,6 +291,7 @@ theorem fold_decomp_unique (β : F) (p₀ p₁ p₀' p₁' : Polynomial F)
         natDegree_comp, foldQ_natDegree, natDegree_X] at hdeq
       omega
 
+-- TODO: Reference to theorem fold_fiber_solve
 /-- The folded word's value at y = q(x), computed from the fiber {x, x+β}
 of the current word w. This is p₀(y) + c·p₁(y) with the components read
 off the 2×2 solve above -/
@@ -307,7 +311,7 @@ theorem foldWord_pair (β c : F) (hβ : β ≠ 0) (w : F → F) (x : F) :
   linear_combination hs + CharTwo.add_self_eq_zero (w (x + β))
 
 /-- The folded value, seen fiber-locally: if w on the fiber {x, x + β}
-is given by the base-q components a = p₀(y), b = p₁(y) as in
+is given by the base-q components a = p₀(y), b = p₁(y) as in theorem
 fold_fiber_solve, then foldWord computes a + c·b = (p₀ + c·p₁)(y).
 This is the word-level content of one fold round; foldWord_eval lifts
 it to polynomials. -/
