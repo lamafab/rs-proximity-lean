@@ -121,6 +121,7 @@ basis of editing alone.
   literature statements, and open conjectures.
 - Do not duplicate detailed mathematical exposition across README, module
   headers, and `THEOREMS.md`.
+- Use ASCII-only formulas in responses; the user's UI may not render LaTeX.
 
 ## Working style
 
