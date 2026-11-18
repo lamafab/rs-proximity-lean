@@ -1,4 +1,4 @@
-import RsProximity.ListDecoding
+import RsProximity.CritesStewartReduction
 import Mathlib.Analysis.SpecialFunctions.Log.Base
 
 -- ============================================================================
@@ -11,7 +11,7 @@ import Mathlib.Analysis.SpecialFunctions.Log.Base
 -- conjectures, not theorems. The bias here is deliberate: each
 -- statement asserts that the repaired form HOLDS, up to the
 -- list-decoding capacity bound. Theorem 2
--- (rsListDecodable_of_lineCorrelatedAgreement, ListDecoding.lean)
+-- (rsListDecodable_of_lineCorrelatedAgreement, CritesStewartReduction.lean)
 -- explains why the small-error regimes are expected to be hard:
 -- proving them would imply new classical list-decoding results.
 --
